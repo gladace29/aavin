@@ -127,6 +127,13 @@ input[type="checkbox"], input[type="radio"] {
 .chart-tooltip-val { font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
 .chart-tooltip-divider { border-top: 1px dashed var(--border); margin: 0.4rem 0; }
 .chart-tooltip-note { margin-top: 0.35rem; font-size: 0.74rem; color: #b91c1c; background: #fef2f2; padding: 0.25rem 0.45rem; border-radius: 6px; }
+.chart-selected-strip { display: flex; flex-direction: column; gap: 0.45rem; background: #f8faff; border: 1.5px solid #e0e7ff; border-left: 4px solid var(--primary); border-radius: 8px; padding: 0.65rem 0.85rem; margin-top: 0.85rem; animation: fadeIn 0.15s ease-out; }
+.chart-selected-header { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; font-size: 0.82rem; color: var(--text); }
+.chart-selected-header strong { color: var(--primary-dark); }
+.chart-selected-clear { background: none; border: 1px solid var(--border); color: #475569; font-size: 0.76rem; font-weight: 500; cursor: pointer; padding: 0.2rem 0.5rem; border-radius: 6px; background: #ffffff; }
+.chart-selected-clear:hover { background: #f1f5f9; color: var(--text); }
+.chart-selected-metrics { display: flex; flex-wrap: wrap; gap: 0.45rem 1.15rem; font-size: 0.8rem; color: #475569; }
+.chart-selected-metrics span strong { color: var(--text); }
 .table-card { overflow: hidden; }
 .table-card h2 { font-size: 1rem; font-weight: 600; padding: 1.25rem 1.5rem 0.75rem; color: var(--text); }
 .table-summary-strip { display: flex; flex-wrap: wrap; gap: 0.65rem 1.5rem; font-size: 0.84rem; color: #475569; background: #f8fafc; padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); }

@@ -3,6 +3,7 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Cell,
   Rectangle,
   ReferenceLine,
   ResponsiveContainer,
@@ -209,6 +210,7 @@ export function DailyProfitLossChart({
   onEmptyAction?: () => void;
 }) {
   const [view, setView] = useState<'net' | 'rev_cost'>('net');
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const activeRows = data.filter(d => !d.no_entry && (d.revenue !== 0 || d.cost !== 0 || d.profit !== 0));
   const totalRevenue = activeRows.reduce((s, d) => s + d.revenue, 0);
   const totalCost = activeRows.reduce((s, d) => s + d.cost, 0);
@@ -218,6 +220,18 @@ export function DailyProfitLossChart({
   const chartData = data.map(d => (
     d.no_entry ? { ...d, profit: null as unknown as number, revenue: null as unknown as number, cost: null as unknown as number } : d
   ));
+
+  const selectedDay = selectedDate ? data.find(d => d.date === selectedDate) : null;
+  const selectedMarginPct = selectedDay && (selectedDay.revenue ?? 0) > 0
+    ? ((((selectedDay.revenue ?? 0) - (selectedDay.cost ?? 0)) / (selectedDay.revenue ?? 1)) * 100).toFixed(1)
+    : null;
+
+  const handleChartClick = (state: unknown) => {
+    const chartState = state as { activeLabel?: string; activePayload?: Array<{ payload?: { date?: string } }> } | null;
+    const clickedDate = chartState?.activeLabel ?? chartState?.activePayload?.[0]?.payload?.date;
+    if (!clickedDate) return;
+    setSelectedDate(prev => prev === clickedDate ? null : clickedDate);
+  };
 
   const scaleValues = view === 'net'
     ? activeRows.map(d => d.profit)
@@ -288,6 +302,7 @@ export function DailyProfitLossChart({
           margin={{ top: 10, right: 12, left: 4, bottom: 4 }}
           barGap={6}
           onTouchStart={handleChartTouchStart}
+          onClick={handleChartClick}
         >
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={CHART_COLORS.grid} />
           <XAxis
@@ -295,7 +310,31 @@ export function DailyProfitLossChart({
             tickFormatter={formatShortDate}
             axisLine={false}
             tickLine={false}
-            tick={{ fontSize: 12, fill: CHART_COLORS.axis }}
+            tick={(props: any) => {
+              const { x = 0, y = 0, payload } = props;
+              const val = payload?.value ?? '';
+              const isSelected = selectedDate === val;
+              return (
+                <g transform={`translate(${x},${y})`}>
+                  <text
+                    x={0}
+                    y={0}
+                    dy={8}
+                    textAnchor="middle"
+                    fill={isSelected ? '#4f46e5' : CHART_COLORS.axis}
+                    fontWeight={isSelected ? 700 : 500}
+                    fontSize={isSelected ? 13 : 11}
+                    style={{ cursor: 'pointer' }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedDate(prev => prev === val ? null : val);
+                    }}
+                  >
+                    {formatShortDate(val)}
+                  </text>
+                </g>
+              );
+            }}
             dy={6}
           />
           <YAxis
@@ -320,15 +359,72 @@ export function DailyProfitLossChart({
               name="Net Profit / Loss"
               maxBarSize={36}
               shape={(props: BarShapeProps) => <ProfitBarShape {...props} orientation="vertical" />}
-            />
+            >
+              {chartData.map(entry => (
+                <Cell
+                  key={entry.date}
+                  opacity={selectedDate ? (selectedDate === entry.date ? 1 : 0.28) : 1}
+                  cursor="pointer"
+                />
+              ))}
+            </Bar>
           ) : (
             <>
-              <Bar dataKey="revenue" name="Revenue" fill={CHART_COLORS.primary} radius={[6, 6, 0, 0]} maxBarSize={26} />
-              <Bar dataKey="cost" name="Procurement Cost" fill={CHART_COLORS.amber} radius={[6, 6, 0, 0]} maxBarSize={26} />
+              <Bar dataKey="revenue" name="Revenue" fill={CHART_COLORS.primary} radius={[6, 6, 0, 0]} maxBarSize={26}>
+                {chartData.map(entry => (
+                  <Cell
+                    key={entry.date}
+                    fill={CHART_COLORS.primary}
+                    opacity={selectedDate ? (selectedDate === entry.date ? 1 : 0.28) : 1}
+                    cursor="pointer"
+                  />
+                ))}
+              </Bar>
+              <Bar dataKey="cost" name="Procurement Cost" fill={CHART_COLORS.amber} radius={[6, 6, 0, 0]} maxBarSize={26}>
+                {chartData.map(entry => (
+                  <Cell
+                    key={entry.date}
+                    fill={CHART_COLORS.amber}
+                    opacity={selectedDate ? (selectedDate === entry.date ? 1 : 0.28) : 1}
+                    cursor="pointer"
+                  />
+                ))}
+              </Bar>
             </>
           )}
         </BarChart>
       </ResponsiveContainer>
+
+      {selectedDay && (
+        <div className="chart-selected-strip">
+          <div className="chart-selected-header">
+            <span>
+              Selected: <strong>{formatDateDDMMYYYY(selectedDay.date)}</strong>
+            </span>
+            <button
+              type="button"
+              className="chart-selected-clear"
+              onClick={() => setSelectedDate(null)}
+              aria-label="Clear selected date"
+            >
+              ✕ Deselect
+            </button>
+          </div>
+          {selectedDay.no_entry || (selectedDay.revenue === 0 && selectedDay.cost === 0) ? (
+            <p style={{ margin: 0, fontSize: '0.78rem', color: '#6b7280' }}>No transactions recorded for this date</p>
+          ) : (
+            <div className="chart-selected-metrics">
+              <span>Revenue: <strong>{formatINR(selectedDay.revenue)}</strong></span>
+              <span>Cost: <strong>{formatINR(selectedDay.cost)}</strong></span>
+              <span className={selectedDay.profit >= 0 ? 'profit-pos' : 'profit-neg'}>
+                {selectedDay.profit >= 0 ? 'Net Profit' : 'Net Loss'}:{' '}
+                <strong>{formatINR(selectedDay.profit, { showPlus: selectedDay.profit > 0 })}</strong>
+                {selectedMarginPct && ` (${selectedMarginPct}%)`}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
     </ChartCardShell>
   );
 }
@@ -343,11 +439,24 @@ export function UnitProfitLossChart({
   sellingRate?: number;
   title?: string;
 }) {
+  const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
   const totalRevenue = data.reduce((s, d) => s + d.revenue, 0);
   const totalCost = data.reduce((s, d) => s + d.cost, 0);
   const totalProfit = totalRevenue - totalCost;
   const chartHeight = Math.max(240, data.length * 52);
   const { domain, ticks } = computeCleanCurrencyTicks(data.map(d => d.profit));
+
+  const selectedUnit = selectedUnitId ? data.find(u => u.unit_id === selectedUnitId) : null;
+  const selectedMarginPct = selectedUnit && selectedUnit.revenue > 0
+    ? (((selectedUnit.revenue - selectedUnit.cost) / selectedUnit.revenue) * 100).toFixed(1)
+    : null;
+
+  const handleChartClick = (state: unknown) => {
+    const chartState = state as { activePayload?: Array<{ payload?: { unit_id?: string } }> } | null;
+    const clickedId = chartState?.activePayload?.[0]?.payload?.unit_id;
+    if (!clickedId) return;
+    setSelectedUnitId(prev => prev === clickedId ? null : clickedId);
+  };
 
   return (
     <ChartCardShell
@@ -375,6 +484,7 @@ export function UnitProfitLossChart({
           layout="vertical"
           margin={{ top: 8, right: 16, left: 4, bottom: 4 }}
           onTouchStart={handleChartTouchStart}
+          onClick={handleChartClick}
         >
           <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={CHART_COLORS.grid} />
           <XAxis
@@ -406,9 +516,44 @@ export function UnitProfitLossChart({
             name="Profit / Loss"
             maxBarSize={24}
             shape={(props: BarShapeProps) => <ProfitBarShape {...props} orientation="horizontal" />}
-          />
+          >
+            {data.map(entry => (
+              <Cell
+                key={entry.unit_id}
+                opacity={selectedUnitId ? (selectedUnitId === entry.unit_id ? 1 : 0.28) : 1}
+                cursor="pointer"
+              />
+            ))}
+          </Bar>
         </BarChart>
       </ResponsiveContainer>
+
+      {selectedUnit && (
+        <div className="chart-selected-strip">
+          <div className="chart-selected-header">
+            <span>
+              Selected Unit: <strong>{selectedUnit.name}</strong> ({selectedUnit.unit_code})
+            </span>
+            <button
+              type="button"
+              className="chart-selected-clear"
+              onClick={() => setSelectedUnitId(null)}
+              aria-label="Clear selected unit"
+            >
+              ✕ Deselect
+            </button>
+          </div>
+          <div className="chart-selected-metrics">
+            <span>Revenue: <strong>{formatINR(selectedUnit.revenue)}</strong></span>
+            <span>Cost: <strong>{formatINR(selectedUnit.cost)}</strong></span>
+            <span className={selectedUnit.profit >= 0 ? 'profit-pos' : 'profit-neg'}>
+              {selectedUnit.profit >= 0 ? 'Net Profit' : 'Net Loss'}:{' '}
+              <strong>{formatINR(selectedUnit.profit, { showPlus: selectedUnit.profit > 0 })}</strong>
+              {selectedMarginPct && ` (${selectedMarginPct}%)`}
+            </span>
+          </div>
+        </div>
+      )}
     </ChartCardShell>
   );
 }

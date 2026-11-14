@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import {
   Bar,
   BarChart,
   CartesianGrid,
+  Cell,
   Line,
   LineChart,
   ReferenceLine,
@@ -148,6 +150,7 @@ export function MilkCollectionTrendChart({
   emptyActionLabel?: string;
   onEmptyAction?: () => void;
 }) {
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const hasAnyEntries = data.some(d => !d.no_entry && d.quantity > 0);
   const totalQty = data.reduce((sum, d) => sum + d.quantity, 0);
   const totalRej = data.reduce((sum, d) => sum + (d.rejection ?? Math.max(0, d.quantity - d.net_quantity)), 0);
@@ -158,6 +161,17 @@ export function MilkCollectionTrendChart({
     const pm = d.pm_quantity ?? 0;
     return { ...d, am_quantity: am, pm_quantity: pm };
   });
+
+  const selectedDay = selectedDate ? normalized.find(d => d.date === selectedDate) : null;
+  const selectedRej = selectedDay ? (selectedDay.rejection ?? Math.max(0, +(selectedDay.quantity - selectedDay.net_quantity).toFixed(2))) : 0;
+  const selectedRejPct = selectedDay && selectedDay.quantity > 0 ? ((selectedRej / selectedDay.quantity) * 100).toFixed(1) : '0.0';
+
+  const handleChartClick = (state: unknown) => {
+    const chartState = state as { activeLabel?: string; activePayload?: Array<{ payload?: { date?: string } }> } | null;
+    const clickedDate = chartState?.activeLabel ?? chartState?.activePayload?.[0]?.payload?.date;
+    if (!clickedDate) return;
+    setSelectedDate(prev => prev === clickedDate ? null : clickedDate);
+  };
 
   return (
     <ChartCardShell
@@ -190,6 +204,7 @@ export function MilkCollectionTrendChart({
           margin={{ top: 8, right: 12, left: 4, bottom: 4 }}
           barGap={4}
           onTouchStart={handleChartTouchStart}
+          onClick={handleChartClick}
         >
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={CHART_COLORS.grid} />
           <XAxis
@@ -197,7 +212,31 @@ export function MilkCollectionTrendChart({
             tickFormatter={formatShortDate}
             axisLine={false}
             tickLine={false}
-            tick={{ fontSize: 12, fill: CHART_COLORS.axis }}
+            tick={(props: any) => {
+              const { x = 0, y = 0, payload } = props;
+              const val = payload?.value ?? '';
+              const isSelected = selectedDate === val;
+              return (
+                <g transform={`translate(${x},${y})`}>
+                  <text
+                    x={0}
+                    y={0}
+                    dy={8}
+                    textAnchor="middle"
+                    fill={isSelected ? '#4f46e5' : CHART_COLORS.axis}
+                    fontWeight={isSelected ? 700 : 500}
+                    fontSize={isSelected ? 13 : 11}
+                    style={{ cursor: 'pointer' }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedDate(prev => prev === val ? null : val);
+                    }}
+                  >
+                    {formatShortDate(val)}
+                  </text>
+                </g>
+              );
+            }}
             dy={6}
           />
           <YAxis
@@ -213,11 +252,75 @@ export function MilkCollectionTrendChart({
             isAnimationActive={false}
             wrapperStyle={{ pointerEvents: 'none' }}
           />
-          <Bar dataKey="am_quantity" stackId="shift" name="Morning (AM)" fill={CHART_COLORS.primary} maxBarSize={32} radius={[0, 0, 0, 0]} />
-          <Bar dataKey="pm_quantity" stackId="shift" name="Evening (PM)" fill="#0ea5e9" maxBarSize={32} radius={[6, 6, 0, 0]} />
-          <Bar dataKey="rejection" name="Rejection (L)" fill={CHART_COLORS.loss} maxBarSize={14} radius={[4, 4, 0, 0]} />
+          <Bar dataKey="am_quantity" stackId="shift" name="Morning (AM)" fill={CHART_COLORS.primary} maxBarSize={32} radius={[0, 0, 0, 0]}>
+            {normalized.map(entry => (
+              <Cell
+                key={entry.date}
+                fill={CHART_COLORS.primary}
+                opacity={selectedDate ? (selectedDate === entry.date ? 1 : 0.28) : 1}
+                stroke={selectedDate === entry.date ? '#312e81' : undefined}
+                strokeWidth={selectedDate === entry.date ? 2 : 0}
+                cursor="pointer"
+              />
+            ))}
+          </Bar>
+          <Bar dataKey="pm_quantity" stackId="shift" name="Evening (PM)" fill="#0ea5e9" maxBarSize={32} radius={[6, 6, 0, 0]}>
+            {normalized.map(entry => (
+              <Cell
+                key={entry.date}
+                fill="#0ea5e9"
+                opacity={selectedDate ? (selectedDate === entry.date ? 1 : 0.28) : 1}
+                stroke={selectedDate === entry.date ? '#0369a1' : undefined}
+                strokeWidth={selectedDate === entry.date ? 2 : 0}
+                cursor="pointer"
+              />
+            ))}
+          </Bar>
+          <Bar dataKey="rejection" name="Rejection (L)" fill={CHART_COLORS.loss} maxBarSize={14} radius={[4, 4, 0, 0]}>
+            {normalized.map(entry => (
+              <Cell
+                key={entry.date}
+                fill={CHART_COLORS.loss}
+                opacity={selectedDate ? (selectedDate === entry.date ? 1 : 0.28) : 1}
+                stroke={selectedDate === entry.date ? '#991b1b' : undefined}
+                strokeWidth={selectedDate === entry.date ? 1.5 : 0}
+                cursor="pointer"
+              />
+            ))}
+          </Bar>
         </BarChart>
       </ResponsiveContainer>
+
+      {selectedDay && (
+        <div className="chart-selected-strip">
+          <div className="chart-selected-header">
+            <span>
+              Selected: <strong>{formatDateDDMMYYYY(selectedDay.date)}</strong>
+            </span>
+            <button
+              type="button"
+              className="chart-selected-clear"
+              onClick={() => setSelectedDate(null)}
+              aria-label="Clear selected date"
+            >
+              ✕ Deselect
+            </button>
+          </div>
+          {selectedDay.no_entry || selectedDay.quantity === 0 ? (
+            <p style={{ margin: 0, fontSize: '0.78rem', color: '#6b7280' }}>No entry recorded for this date</p>
+          ) : (
+            <div className="chart-selected-metrics">
+              <span>AM: <strong>{formatLitres(selectedDay.am_quantity ?? 0)}</strong></span>
+              <span>PM: <strong>{formatLitres(selectedDay.pm_quantity ?? 0)}</strong></span>
+              <span>Total: <strong>{formatLitres(selectedDay.quantity)}</strong></span>
+              <span>Net: <strong>{formatLitres(selectedDay.net_quantity)}</strong></span>
+              <span className={selectedRej > 0 ? 'profit-neg' : ''}>
+                Rejected: <strong>{formatLitres(selectedRej)} ({selectedRejPct}%)</strong>
+              </span>
+            </div>
+          )}
+        </div>
+      )}
     </ChartCardShell>
   );
 }
@@ -238,10 +341,20 @@ export function QualityTrendChart({
   emptyActionLabel?: string;
   onEmptyAction?: () => void;
 }) {
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const validRows = data.filter(d => !d.no_entry && d.avg_fat != null && d.avg_snf != null && d.quantity > 0);
   const totalQty = validRows.reduce((s, d) => s + d.quantity, 0);
   const weightedFat = totalQty > 0 ? validRows.reduce((s, d) => s + d.quantity * Number(d.avg_fat), 0) / totalQty : 0;
   const weightedSnf = totalQty > 0 ? validRows.reduce((s, d) => s + d.quantity * Number(d.avg_snf), 0) / totalQty : 0;
+
+  const selectedDay = selectedDate ? data.find(d => d.date === selectedDate) : null;
+
+  const handleChartClick = (state: unknown) => {
+    const chartState = state as { activeLabel?: string; activePayload?: Array<{ payload?: { date?: string } }> } | null;
+    const clickedDate = chartState?.activeLabel ?? chartState?.activePayload?.[0]?.payload?.date;
+    if (!clickedDate) return;
+    setSelectedDate(prev => prev === clickedDate ? null : clickedDate);
+  };
 
   return (
     <ChartCardShell
@@ -270,6 +383,7 @@ export function QualityTrendChart({
           data={data}
           margin={{ top: 8, right: 12, left: 4, bottom: 4 }}
           onTouchStart={handleChartTouchStart}
+          onClick={handleChartClick}
         >
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={CHART_COLORS.grid} />
           <XAxis
@@ -277,7 +391,31 @@ export function QualityTrendChart({
             tickFormatter={formatShortDate}
             axisLine={false}
             tickLine={false}
-            tick={{ fontSize: 12, fill: CHART_COLORS.axis }}
+            tick={(props: any) => {
+              const { x = 0, y = 0, payload } = props;
+              const val = payload?.value ?? '';
+              const isSelected = selectedDate === val;
+              return (
+                <g transform={`translate(${x},${y})`}>
+                  <text
+                    x={0}
+                    y={0}
+                    dy={8}
+                    textAnchor="middle"
+                    fill={isSelected ? '#4f46e5' : CHART_COLORS.axis}
+                    fontWeight={isSelected ? 700 : 500}
+                    fontSize={isSelected ? 13 : 11}
+                    style={{ cursor: 'pointer' }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedDate(prev => prev === val ? null : val);
+                    }}
+                  >
+                    {formatShortDate(val)}
+                  </text>
+                </g>
+              );
+            }}
             dy={6}
           />
           <YAxis
@@ -291,6 +429,9 @@ export function QualityTrendChart({
           />
           <ReferenceLine y={fatBenchmark} stroke="#f59e0b" strokeDasharray="4 4" />
           <ReferenceLine y={snfBenchmark} stroke="#10b981" strokeDasharray="4 4" />
+          {selectedDate && (
+            <ReferenceLine x={selectedDate} stroke="#4f46e5" strokeWidth={2} strokeDasharray="3 3" />
+          )}
           <Tooltip
             content={<QualityTooltip />}
             cursor={{ stroke: '#94a3b8', strokeWidth: 1.5, strokeDasharray: '3 3' }}
@@ -319,6 +460,41 @@ export function QualityTrendChart({
           />
         </LineChart>
       </ResponsiveContainer>
+
+      {selectedDay && (
+        <div className="chart-selected-strip">
+          <div className="chart-selected-header">
+            <span>
+              Selected: <strong>{formatDateDDMMYYYY(selectedDay.date)}</strong>
+            </span>
+            <button
+              type="button"
+              className="chart-selected-clear"
+              onClick={() => setSelectedDate(null)}
+              aria-label="Clear selected date"
+            >
+              ✕ Deselect
+            </button>
+          </div>
+          {selectedDay.no_entry || selectedDay.avg_fat == null || selectedDay.avg_snf == null ? (
+            <p style={{ margin: 0, fontSize: '0.78rem', color: '#6b7280' }}>No quality test recorded for this date</p>
+          ) : (
+            <div className="chart-selected-metrics">
+              <span>
+                Fat: <strong>{formatFatSnf(selectedDay.avg_fat, true)}</strong>{' '}
+                {selectedDay.avg_fat >= fatBenchmark ? '✓' : '(Below benchmark)'}
+              </span>
+              <span>
+                SNF: <strong>{formatFatSnf(selectedDay.avg_snf, true)}</strong>{' '}
+                {selectedDay.avg_snf >= snfBenchmark ? '✓' : '(Below benchmark)'}
+              </span>
+              {selectedDay.quantity > 0 && (
+                <span>Volume: <strong>{formatLitres(selectedDay.quantity)}</strong></span>
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </ChartCardShell>
   );
 }
@@ -335,8 +511,19 @@ export function UnitQuantityBarChart({
   emptyActionLabel?: string;
   onEmptyAction?: () => void;
 }) {
+  const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
   const totalQty = data.reduce((sum, u) => sum + u.quantity, 0);
   const chartHeight = Math.max(220, data.length * 48);
+
+  const selectedUnit = selectedUnitId ? data.find(u => u.unit_id === selectedUnitId) : null;
+  const selectedUnitRejPct = selectedUnit && selectedUnit.quantity > 0 ? ((selectedUnit.rejection / selectedUnit.quantity) * 100).toFixed(1) : '0.0';
+
+  const handleChartClick = (state: unknown) => {
+    const chartState = state as { activePayload?: Array<{ payload?: { unit_id?: string } }> } | null;
+    const clickedId = chartState?.activePayload?.[0]?.payload?.unit_id;
+    if (!clickedId) return;
+    setSelectedUnitId(prev => prev === clickedId ? null : clickedId);
+  };
 
   return (
     <ChartCardShell
@@ -365,6 +552,7 @@ export function UnitQuantityBarChart({
           barGap={4}
           margin={{ top: 6, right: 16, left: 4, bottom: 4 }}
           onTouchStart={handleChartTouchStart}
+          onClick={handleChartClick}
         >
           <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={CHART_COLORS.grid} />
           <XAxis
@@ -388,10 +576,57 @@ export function UnitQuantityBarChart({
             isAnimationActive={false}
             wrapperStyle={{ pointerEvents: 'none' }}
           />
-          <Bar dataKey="quantity" name="Collected (L)" fill={CHART_COLORS.primary} radius={[0, 6, 6, 0]} maxBarSize={20} />
-          <Bar dataKey="rejection" name="Rejected (L)" fill={CHART_COLORS.loss} radius={[0, 6, 6, 0]} maxBarSize={20} />
+          <Bar dataKey="quantity" name="Collected (L)" fill={CHART_COLORS.primary} radius={[0, 6, 6, 0]} maxBarSize={20}>
+            {data.map(entry => (
+              <Cell
+                key={entry.unit_id}
+                fill={CHART_COLORS.primary}
+                opacity={selectedUnitId ? (selectedUnitId === entry.unit_id ? 1 : 0.28) : 1}
+                stroke={selectedUnitId === entry.unit_id ? '#312e81' : undefined}
+                strokeWidth={selectedUnitId === entry.unit_id ? 2 : 0}
+                cursor="pointer"
+              />
+            ))}
+          </Bar>
+          <Bar dataKey="rejection" name="Rejected (L)" fill={CHART_COLORS.loss} radius={[0, 6, 6, 0]} maxBarSize={20}>
+            {data.map(entry => (
+              <Cell
+                key={entry.unit_id}
+                fill={CHART_COLORS.loss}
+                opacity={selectedUnitId ? (selectedUnitId === entry.unit_id ? 1 : 0.28) : 1}
+                stroke={selectedUnitId === entry.unit_id ? '#991b1b' : undefined}
+                strokeWidth={selectedUnitId === entry.unit_id ? 1.5 : 0}
+                cursor="pointer"
+              />
+            ))}
+          </Bar>
         </BarChart>
       </ResponsiveContainer>
+
+      {selectedUnit && (
+        <div className="chart-selected-strip">
+          <div className="chart-selected-header">
+            <span>
+              Selected Unit: <strong>{selectedUnit.name}</strong> ({selectedUnit.unit_code})
+            </span>
+            <button
+              type="button"
+              className="chart-selected-clear"
+              onClick={() => setSelectedUnitId(null)}
+              aria-label="Clear selected unit"
+            >
+              ✕ Deselect
+            </button>
+          </div>
+          <div className="chart-selected-metrics">
+            <span>Collected: <strong>{formatLitres(selectedUnit.quantity)}</strong></span>
+            <span>Net Accepted: <strong>{formatLitres(selectedUnit.net_quantity)}</strong></span>
+            <span className={selectedUnit.rejection > 0 ? 'profit-neg' : ''}>
+              Rejected: <strong>{formatLitres(selectedUnit.rejection)} ({selectedUnitRejPct}%)</strong>
+            </span>
+          </div>
+        </div>
+      )}
     </ChartCardShell>
   );
 }
