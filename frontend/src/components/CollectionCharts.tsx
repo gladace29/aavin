@@ -12,7 +12,7 @@ import {
 } from 'recharts';
 import { formatDateDDMMYYYY, formatFatSnf, formatLitres, formatShortDate } from '../lib/format';
 import { CHART_COLORS } from '../lib/chartTheme';
-import { ChartCardShell, TooltipRow } from './ChartPrimitives';
+import { ChartCardShell, TooltipRow, handleChartTouchStart } from './ChartPrimitives';
 
 export interface CollectionTrendDatum {
   date: string;
@@ -185,7 +185,12 @@ export function MilkCollectionTrendChart({
       ]}
     >
       <ResponsiveContainer width="100%" height={260}>
-        <BarChart data={normalized} margin={{ top: 8, right: 12, left: 4, bottom: 4 }} barGap={4}>
+        <BarChart
+          data={normalized}
+          margin={{ top: 8, right: 12, left: 4, bottom: 4 }}
+          barGap={4}
+          onTouchStart={handleChartTouchStart}
+        >
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={CHART_COLORS.grid} />
           <XAxis
             dataKey="date"
@@ -200,9 +205,14 @@ export function MilkCollectionTrendChart({
             axisLine={false}
             tickLine={false}
             tick={{ fontSize: 12, fill: CHART_COLORS.axis }}
-            width={62}
+            width={52}
           />
-          <Tooltip content={<CollectionTooltip />} cursor={{ fill: CHART_COLORS.cursor }} />
+          <Tooltip
+            content={<CollectionTooltip />}
+            cursor={{ fill: CHART_COLORS.cursor }}
+            isAnimationActive={false}
+            wrapperStyle={{ pointerEvents: 'none' }}
+          />
           <Bar dataKey="am_quantity" stackId="shift" name="Morning (AM)" fill={CHART_COLORS.primary} maxBarSize={32} radius={[0, 0, 0, 0]} />
           <Bar dataKey="pm_quantity" stackId="shift" name="Evening (PM)" fill="#0ea5e9" maxBarSize={32} radius={[6, 6, 0, 0]} />
           <Bar dataKey="rejection" name="Rejection (L)" fill={CHART_COLORS.loss} maxBarSize={14} radius={[4, 4, 0, 0]} />
@@ -256,7 +266,11 @@ export function QualityTrendChart({
       ]}
     >
       <ResponsiveContainer width="100%" height={240}>
-        <LineChart data={data} margin={{ top: 8, right: 12, left: 4, bottom: 4 }}>
+        <LineChart
+          data={data}
+          margin={{ top: 8, right: 12, left: 4, bottom: 4 }}
+          onTouchStart={handleChartTouchStart}
+        >
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={CHART_COLORS.grid} />
           <XAxis
             dataKey="date"
@@ -273,11 +287,16 @@ export function QualityTrendChart({
             axisLine={false}
             tickLine={false}
             tick={{ fontSize: 12, fill: CHART_COLORS.axis }}
-            width={46}
+            width={42}
           />
           <ReferenceLine y={fatBenchmark} stroke="#f59e0b" strokeDasharray="4 4" />
           <ReferenceLine y={snfBenchmark} stroke="#10b981" strokeDasharray="4 4" />
-          <Tooltip content={<QualityTooltip />} />
+          <Tooltip
+            content={<QualityTooltip />}
+            cursor={{ stroke: '#94a3b8', strokeWidth: 1.5, strokeDasharray: '3 3' }}
+            isAnimationActive={false}
+            wrapperStyle={{ pointerEvents: 'none' }}
+          />
           <Line
             type="monotone"
             dataKey="avg_fat"
@@ -286,7 +305,7 @@ export function QualityTrendChart({
             strokeWidth={2.2}
             connectNulls={false}
             dot={{ r: 3.5, strokeWidth: 2, fill: '#ffffff' }}
-            activeDot={{ r: 5 }}
+            activeDot={{ r: 6 }}
           />
           <Line
             type="monotone"
@@ -296,7 +315,7 @@ export function QualityTrendChart({
             strokeWidth={2.2}
             connectNulls={false}
             dot={{ r: 3.5, strokeWidth: 2, fill: '#ffffff' }}
-            activeDot={{ r: 5 }}
+            activeDot={{ r: 6 }}
           />
         </LineChart>
       </ResponsiveContainer>
@@ -340,7 +359,13 @@ export function UnitQuantityBarChart({
       ]}
     >
       <ResponsiveContainer width="100%" height={chartHeight}>
-        <BarChart data={data} layout="vertical" barGap={4} margin={{ top: 6, right: 16, left: 8, bottom: 4 }}>
+        <BarChart
+          data={data}
+          layout="vertical"
+          barGap={4}
+          margin={{ top: 6, right: 16, left: 4, bottom: 4 }}
+          onTouchStart={handleChartTouchStart}
+        >
           <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={CHART_COLORS.grid} />
           <XAxis
             type="number"
@@ -355,9 +380,14 @@ export function UnitQuantityBarChart({
             axisLine={false}
             tickLine={false}
             tick={{ fontSize: 12, fill: CHART_COLORS.slate }}
-            width={120}
+            width={90}
           />
-          <Tooltip content={<UnitQuantityTooltip />} cursor={{ fill: CHART_COLORS.cursor }} />
+          <Tooltip
+            content={<UnitQuantityTooltip />}
+            cursor={{ fill: CHART_COLORS.cursor }}
+            isAnimationActive={false}
+            wrapperStyle={{ pointerEvents: 'none' }}
+          />
           <Bar dataKey="quantity" name="Collected (L)" fill={CHART_COLORS.primary} radius={[0, 6, 6, 0]} maxBarSize={20} />
           <Bar dataKey="rejection" name="Rejected (L)" fill={CHART_COLORS.loss} radius={[0, 6, 6, 0]} maxBarSize={20} />
         </BarChart>

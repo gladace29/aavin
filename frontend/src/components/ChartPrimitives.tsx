@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useRef, type ReactNode } from 'react';
 import { InfoTooltip } from './UiPrimitives';
 
 export interface ChartCardShellProps {
@@ -16,7 +16,44 @@ export interface ChartCardShellProps {
   children: ReactNode;
 }
 
-/** Shared card wrapper with header, contextual subtitle, badge/toggle controls, summary strip, and empty CTA. */
+/**
+ * Ensures instantaneous touch/tap response on mobile screens for Recharts.
+ * Recharts 3.10 handles touch event state inside touchmove but ignores touchstart alone;
+ * dispatching a touchmove event with the same touch coordinate ensures immediate selection on tap.
+ */
+export function handleChartTouchStart(_state: unknown, event?: React.TouchEvent<SVGGraphicsElement>) {
+  try {
+    const rawTarget = event?.currentTarget as unknown as HTMLElement | null;
+    if (rawTarget && event && event.touches && event.touches.length > 0) {
+      const touch = event.touches[0] as unknown as Touch;
+      if (typeof TouchEvent === 'function') {
+        const moveEvent = new TouchEvent('touchmove', {
+          touches: [touch],
+          targetTouches: [touch],
+          changedTouches: [touch],
+          bubbles: true,
+          cancelable: true,
+        });
+        rawTarget.dispatchEvent(moveEvent);
+      }
+    }
+  } catch {
+    // Ignore fallback for environments without TouchEvent constructor
+  }
+}
+
+/**
+ * Dismisses any active/stuck tooltip on the target chart container by simulating mouseleave.
+ */
+export function dismissChartTooltip(container: HTMLElement | null) {
+  if (!container) return;
+  const wrapper = container.querySelector('.recharts-wrapper');
+  if (wrapper) {
+    wrapper.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }));
+  }
+}
+
+/** Shared card wrapper with header, contextual subtitle, badge/toggle controls, summary strip, tap-to-dismiss, and empty CTA. */
 export function ChartCardShell({
   title,
   subtitle,
@@ -31,8 +68,24 @@ export function ChartCardShell({
   onEmptyAction,
   children,
 }: ChartCardShellProps) {
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  const handleCardDismiss = (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
+    // If the user clicks or taps outside the active SVG plot (e.g. on header, legend, or empty card margin),
+    // dismiss any open sticky tooltip so they can easily reset/unclutter the graph on mobile.
+    const target = e.target as HTMLElement | null;
+    if (target && !target.closest('svg') && !target.closest('button') && !target.closest('input')) {
+      dismissChartTooltip(cardRef.current);
+    }
+  };
+
   return (
-    <div className="card chart-card">
+    <div
+      ref={cardRef}
+      className="card chart-card"
+      onClick={handleCardDismiss}
+      onTouchEnd={handleCardDismiss}
+    >
       <div className="chart-header">
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>

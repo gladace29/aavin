@@ -13,7 +13,7 @@ import {
 import type { BarShapeProps } from 'recharts';
 import { DEFAULT_SELLING_RATE, formatCompactINR, formatDateDDMMYYYY, formatINR, formatShortDate } from '../lib/format';
 import { CHART_COLORS } from '../lib/chartTheme';
-import { ChartCardShell, TooltipRow } from './ChartPrimitives';
+import { ChartCardShell, TooltipRow, handleChartTouchStart } from './ChartPrimitives';
 
 export interface DailyProfitDatum {
   date: string;
@@ -283,7 +283,12 @@ export function DailyProfitLossChart({
       }
     >
       <ResponsiveContainer width="100%" height={280}>
-        <BarChart data={chartData} margin={{ top: 10, right: 12, left: 4, bottom: 4 }} barGap={6}>
+        <BarChart
+          data={chartData}
+          margin={{ top: 10, right: 12, left: 4, bottom: 4 }}
+          barGap={6}
+          onTouchStart={handleChartTouchStart}
+        >
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={CHART_COLORS.grid} />
           <XAxis
             dataKey="date"
@@ -300,10 +305,15 @@ export function DailyProfitLossChart({
             axisLine={false}
             tickLine={false}
             tick={{ fontSize: 12, fill: CHART_COLORS.axis }}
-            width={62}
+            width={52}
           />
           <ReferenceLine y={0} stroke={CHART_COLORS.zeroLine} strokeWidth={1.5} />
-          <Tooltip content={<DailyTooltip />} cursor={{ fill: CHART_COLORS.cursor }} />
+          <Tooltip
+            content={<DailyTooltip />}
+            cursor={{ fill: CHART_COLORS.cursor }}
+            isAnimationActive={false}
+            wrapperStyle={{ pointerEvents: 'none' }}
+          />
           {view === 'net' ? (
             <Bar
               dataKey="profit"
@@ -360,7 +370,12 @@ export function UnitProfitLossChart({
       ]}
     >
       <ResponsiveContainer width="100%" height={chartHeight}>
-        <BarChart data={data} layout="vertical" margin={{ top: 8, right: 16, left: 8, bottom: 4 }}>
+        <BarChart
+          data={data}
+          layout="vertical"
+          margin={{ top: 8, right: 16, left: 4, bottom: 4 }}
+          onTouchStart={handleChartTouchStart}
+        >
           <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={CHART_COLORS.grid} />
           <XAxis
             type="number"
@@ -377,10 +392,15 @@ export function UnitProfitLossChart({
             axisLine={false}
             tickLine={false}
             tick={{ fontSize: 12, fill: CHART_COLORS.slate }}
-            width={120}
+            width={90}
           />
           <ReferenceLine x={0} stroke={CHART_COLORS.zeroLine} strokeWidth={1.5} />
-          <Tooltip content={<UnitTooltip />} cursor={{ fill: CHART_COLORS.cursor }} />
+          <Tooltip
+            content={<UnitTooltip />}
+            cursor={{ fill: CHART_COLORS.cursor }}
+            isAnimationActive={false}
+            wrapperStyle={{ pointerEvents: 'none' }}
+          />
           <Bar
             dataKey="profit"
             name="Profit / Loss"
